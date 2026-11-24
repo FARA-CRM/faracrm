@@ -29,11 +29,6 @@ export function KanbanCardLead({
 
   return (
     <Stack gap={4} mt={6}>
-      <ProgressView
-        value={record.progress}
-        size="sm"
-        label={t('leads.progress')}
-      />
       {record.partner_id && (
         <Group gap={6} wrap="nowrap">
           <Tooltip label={t('leads.partner_id')} withArrow>
@@ -55,6 +50,14 @@ export function KanbanCardLead({
         />
       )}
       <DateTimeCell value={record.create_datetime} format="date" showIcon />
+      {/* Прогресс — футер карточки: не конкурирует с полями партнёра и
+          менеджера и читается как итог по записи. Разделитель при желании
+          добавляется одной строкой: <Divider my={2} />. */}
+      <ProgressView
+        value={record.progress}
+        size="sm"
+        label={t('leads.progress')}
+      />
     </Stack>
   );
 }
