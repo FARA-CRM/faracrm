@@ -1,10 +1,27 @@
+from typing import TYPE_CHECKING
+
 from backend.base.system.dotorm.dotorm.fields import (
     Char,
     Integer,
     Boolean,
+    Many2one,
 )
 from backend.base.system.schemas.base_schema import Id
 from backend.base.system.dotorm.dotorm.model import DotModel
+from backend.base.system.core.enviroment import env
+
+if TYPE_CHECKING:
+    from .sale_funnel import SaleFunnel
+
+
+async def _default_funnel_id():
+    """Воронка по умолчанию — первая по порядку активная."""
+    return await env.models.sale_funnel.search_one(
+        filter=[("active", "=", True)],
+        fields=["id", "name"],
+        sort="sequence",
+        order="ASC",
+    )
 
 
 class SaleStage(DotModel):
@@ -16,6 +33,16 @@ class SaleStage(DotModel):
     active: bool = Boolean(default=True)
     fold: bool = Boolean(default=False, string="Folded in Kanban")
     color: str = Char(string="Color", default="#3498db")
+    # Воронка стадии: канбан показывает только стадии выбранной воронки.
+    # default — чтобы стадия, созданная без явной воронки, не повисла вне
+    # воронок (иначе лиды/заказы на ней пропадут из канбанов).
+    funnel_id: "SaleFunnel | None" = Many2one(
+        lambda: env.models.sale_funnel,
+        string="Funnel",
+        index=True,
+        ondelete="restrict",
+        default=_default_funnel_id,
+    )
 
     # Прогресс по умолчанию (0–100): заказ получает его при попадании на
     # стадию (StageProgressMixin), дальше правится в заказе руками.

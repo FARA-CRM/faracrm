@@ -822,6 +822,7 @@ export const ALIASES: Record<string, string> = {
   contact: 'partners',
   contact_type: 'partners',
   // CRM / лиды
+  lead_funnel: 'leads',
   lead_stage: 'leads',
   team_crm: 'leads',
   chat_routing_rule_lead: 'chat_connector',
@@ -831,6 +832,7 @@ export const ALIASES: Record<string, string> = {
   chat_external_message: 'chat_connector',
   chat_folder: 'chat',
   // Продажи
+  sale_funnel: 'sales',
   sale_stage: 'sales',
   sale_line: 'sales',
   tax: 'sales',

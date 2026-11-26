@@ -9,6 +9,7 @@ from backend.base.system.core.app import App
 from backend.base.crm.security.acl_post_init_mixin import ACL
 from backend.base.crm.security.utils import init_module_roles
 from .models.lead_stage import LeadStage, INITIAL_LEAD_STAGES
+from .models.lead_funnel import LeadFunnel, INITIAL_LEAD_FUNNELS
 
 # Sale.lead_id объявлен здесь (@extend), а не в sales: продажи не должны знать
 # о лидах. Пакет leads без __init__.py — автодискавер *_ext в него не заходит,
@@ -48,6 +49,7 @@ class LeadsApp(App):
 
     BASE_USER_ACL = {
         "lead_stage": ACL.READ_ONLY,
+        "lead_funnel": ACL.READ_ONLY,
         "team_crm": ACL.READ_ONLY,
     }
 
@@ -55,16 +57,19 @@ class LeadsApp(App):
         "crm_user": {
             "lead": ACL.FULL,
             "lead_stage": ACL.READ_ONLY,
+            "lead_funnel": ACL.READ_ONLY,
             "team_crm": ACL.READ_ONLY,
         },
         "crm_manager": {
             "lead": ACL.FULL,
             "lead_stage": ACL.READ_ONLY,
+            "lead_funnel": ACL.READ_ONLY,
             "team_crm": ACL.READ_ONLY,
         },
         "crm_admin": {
             "lead": ACL.FULL,
             "lead_stage": ACL.FULL,
+            "lead_funnel": ACL.FULL,
             "team_crm": ACL.FULL,
         },
     }
@@ -86,12 +91,19 @@ class LeadsApp(App):
 
         await super().post_init(app)
 
+        # Воронки: без них не к чему привязать стадии.
+        funnel_id = await self._init_lead_funnels(env)
+
         existing_stages = await env.models.lead_stage.search_one(fields=["id"])
         if not existing_stages:
             for stage_data in INITIAL_LEAD_STAGES:
-                await env.models.lead_stage.create(
-                    payload=LeadStage(**stage_data),
-                )
+                payload = LeadStage(**stage_data)
+                if funnel_id:
+                    payload.funnel_id = funnel_id
+                await env.models.lead_stage.create(payload=payload)
+
+        # Разовая миграция: старые стадии/лиды — в воронку.
+        await self._migrate_funnels(env, funnel_id)
 
         # ACL уже создан через super().post_init(app) (BASE_USER_ACL / ROLE_ACL).
         # Осталось создать row-level rules.
@@ -99,6 +111,71 @@ class LeadsApp(App):
 
         # Дефолтная команда + авто-заполнение внутренними пользователями.
         await self._init_default_team(env)
+
+    async def _init_lead_funnels(self, env: "Environment") -> int | None:
+        """Создаёт воронку лидов по умолчанию; возвращает её id.
+
+        Идемпотентно: если воронки уже есть, возвращает первую активную —
+        новые воронки создаёт пользователь.
+        """
+        existing = await env.models.lead_funnel.search_one(
+            filter=[("active", "=", True)],
+            fields=["id"],
+            sort="sequence",
+            order="ASC",
+        )
+        if existing:
+            return existing.id
+
+        for funnel_data in INITIAL_LEAD_FUNNELS:
+            await env.models.lead_funnel.create(
+                payload=LeadFunnel(**funnel_data),
+            )
+
+        created = await env.models.lead_funnel.search_one(
+            filter=[("active", "=", True)],
+            fields=["id"],
+            sort="sequence",
+            order="ASC",
+        )
+        return created.id if created else None
+
+    async def _migrate_funnels(
+        self, env: "Environment", funnel_id: int | None
+    ):
+        """РАЗОВАЯ МИГРАЦИЯ воронок: старые стадии и лиды → воронка.
+
+        TODO: временный код — нужен только базам, жившим до воронок
+        (issue #50): после обновления существующие стадии и лиды должны
+        попасть в воронку, иначе они пропадут из канбанов с фильтром по
+        воронке. Новые записи воронку получают сами (FunnelMixin) и в
+        миграции не нуждаются. Когда основные клиенты обновятся — метод и
+        его вызов из post_init удалить.
+
+        Стадии без воронки → воронка по умолчанию; лиды без воронки →
+        воронка их стадии, иначе — воронка по умолчанию. Повторный запуск
+        ничего не меняет (WHERE funnel_id IS NULL).
+        """
+        if not funnel_id:
+            return
+
+        db = env.models.lead._get_db_session()
+        await db.execute(
+            "UPDATE lead_stage SET funnel_id = $1 WHERE funnel_id IS NULL",
+            [funnel_id],
+            cursor="void",
+        )
+        await db.execute(
+            "UPDATE leads l SET funnel_id = st.funnel_id "
+            "FROM lead_stage st "
+            "WHERE l.stage_id = st.id AND l.funnel_id IS NULL",
+            cursor="void",
+        )
+        await db.execute(
+            "UPDATE leads SET funnel_id = $1 WHERE funnel_id IS NULL",
+            [funnel_id],
+            cursor="void",
+        )
 
     async def _init_default_team(self, env: "Environment"):
         """Создать дефолтную команду и добавить в неё «внутренних

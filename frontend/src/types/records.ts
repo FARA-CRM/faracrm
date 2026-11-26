@@ -33,6 +33,8 @@ export interface BaseRecord {
 export interface LeadRecord extends BaseRecord {
   name: string;
   active: boolean;
+  // Воронка лида — согласована со стадией (бэкенд: FunnelMixin)
+  funnel_id: RelationRecord | null;
   stage_id: RelationRecord | null;
   user_id: RelationRecord | null;
   partner_id: RelationRecord | null;
@@ -49,12 +51,20 @@ export interface LeadRecord extends BaseRecord {
   create_datetime: string;
 }
 
+export interface LeadFunnelRecord extends BaseRecord {
+  name: string;
+  sequence: number;
+  active: boolean;
+}
+
 export interface LeadStageRecord extends BaseRecord {
   name: string;
   sequence: number;
   active: boolean;
   fold: boolean;
   color: string;
+  // Воронка стадии: канбан показывает стадии только выбранной воронки
+  funnel_id: RelationRecord | null;
   // Прогресс по умолчанию для лидов на стадии и включён ли он
   progress: number;
   progress_auto: boolean;
@@ -71,6 +81,8 @@ export interface TeamCrmRecord extends BaseRecord {
 export interface SaleRecord extends BaseRecord {
   name: string;
   active: boolean;
+  // Воронка заказа — согласована со стадией (бэкенд: FunnelMixin)
+  funnel_id: RelationRecord | null;
   stage_id: RelationRecord | null;
   user_id: RelationRecord | null;
   partner_id: RelationRecord | null;
@@ -108,12 +120,20 @@ export interface SaleLineRecord extends BaseRecord {
   price_total: number;
 }
 
+export interface SaleFunnelRecord extends BaseRecord {
+  name: string;
+  sequence: number;
+  active: boolean;
+}
+
 export interface SaleStageRecord extends BaseRecord {
   name: string;
   sequence: number;
   active: boolean;
   fold: boolean;
   color: string;
+  // Воронка стадии: канбан показывает стадии только выбранной воронки
+  funnel_id: RelationRecord | null;
   // Прогресс по умолчанию для заказов на стадии и включён ли он
   progress: number;
   progress_auto: boolean;
@@ -587,11 +607,13 @@ export interface ReportTemplateRecord extends BaseRecord {
 export interface ModelRecordMap {
   // CRM
   lead: LeadRecord;
+  lead_funnel: LeadFunnelRecord;
   lead_stage: LeadStageRecord;
   team_crm: TeamCrmRecord;
   // Sales
   sale: SaleRecord;
   sale_line: SaleLineRecord;
+  sale_funnel: SaleFunnelRecord;
   sale_stage: SaleStageRecord;
   tax: TaxRecord;
   // Partners

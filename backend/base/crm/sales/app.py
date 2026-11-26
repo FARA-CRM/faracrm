@@ -8,6 +8,7 @@ from backend.base.system.dotorm.dotorm.access import BYPASS_DOMAIN
 from backend.base.system.core.app import App
 from backend.base.crm.security.acl_post_init_mixin import ACL
 from .models.sale_stage import SaleStage, INITIAL_SALE_STAGES
+from .models.sale_funnel import SaleFunnel, INITIAL_SALE_FUNNELS
 
 
 class SalesApp(App):
@@ -41,6 +42,7 @@ class SalesApp(App):
 
     BASE_USER_ACL = {
         "sale_stage": ACL.READ_ONLY,
+        "sale_funnel": ACL.READ_ONLY,
         "tax": ACL.READ_ONLY,
         "contract": ACL.READ_ONLY,
     }
@@ -51,6 +53,7 @@ class SalesApp(App):
             "sale": ACL.FULL,
             "sale_line": ACL.FULL,
             "sale_stage": ACL.READ_ONLY,
+            "sale_funnel": ACL.READ_ONLY,
             "tax": ACL.READ_ONLY,
             "contract": ACL.READ_ONLY,
         },
@@ -59,14 +62,16 @@ class SalesApp(App):
             "sale": ACL.FULL,
             "sale_line": ACL.FULL,
             "sale_stage": ACL.READ_ONLY,
+            "sale_funnel": ACL.READ_ONLY,
             "tax": ACL.READ_ONLY,
             "contract": ACL.FULL,
         },
-        # Администратор: полный доступ + управление стадиями и налогами
+        # Администратор: полный доступ + стадии, воронки и налоги
         "sale_admin": {
             "sale": ACL.FULL,
             "sale_line": ACL.FULL,
             "sale_stage": ACL.FULL,
+            "sale_funnel": ACL.FULL,
             "tax": ACL.FULL,
             "contract": ACL.FULL,
         },
@@ -82,23 +87,97 @@ class SalesApp(App):
         # 2. ACL из BASE_USER_ACL / ROLE_ACL
         await super().post_init(app)
 
-        # 3. Начальные стадии продаж
-        await self._init_sale_stages(env)
+        # 3. Воронки: без них не к чему привязать стадии
+        funnel_id = await self._init_sale_funnels(env)
 
-        # 4. Row-level rules
+        # 4. Начальные стадии продаж
+        await self._init_sale_stages(env, funnel_id)
+
+        # 5. Разовая миграция: старые стадии/заказы — в воронку
+        await self._migrate_funnels(env, funnel_id)
+
+        # 6. Row-level rules
         await self._init_sale_rules(env)
 
-    async def _init_sale_stages(self, env: "Environment"):
-        """Создаёт начальные стадии продаж"""
+    async def _init_sale_funnels(self, env: "Environment") -> int | None:
+        """Создаёт воронку по умолчанию; возвращает её id.
+
+        Идемпотентно: если воронки уже есть, возвращает первую активную —
+        новые воронки создаёт пользователь.
+        """
+        existing = await env.models.sale_funnel.search_one(
+            filter=[("active", "=", True)],
+            fields=["id"],
+            sort="sequence",
+            order="ASC",
+        )
+        if existing:
+            return existing.id
+
+        for funnel_data in INITIAL_SALE_FUNNELS:
+            await env.models.sale_funnel.create(
+                payload=SaleFunnel(**funnel_data),
+            )
+
+        created = await env.models.sale_funnel.search_one(
+            filter=[("active", "=", True)],
+            fields=["id"],
+            sort="sequence",
+            order="ASC",
+        )
+        return created.id if created else None
+
+    async def _init_sale_stages(
+        self, env: "Environment", funnel_id: int | None
+    ):
+        """Создаёт начальные стадии продаж в воронке по умолчанию."""
 
         existing = await env.models.sale_stage.search_one(fields=["id"])
         if existing:
             return
 
         for stage_data in INITIAL_SALE_STAGES:
-            await env.models.sale_stage.create(
-                payload=SaleStage(**stage_data),
-            )
+            payload = SaleStage(**stage_data)
+            if funnel_id:
+                payload.funnel_id = funnel_id
+            await env.models.sale_stage.create(payload=payload)
+
+    async def _migrate_funnels(
+        self, env: "Environment", funnel_id: int | None
+    ):
+        """РАЗОВАЯ МИГРАЦИЯ воронок: старые стадии и заказы → воронка.
+
+        TODO: временный код — нужен только базам, жившим до воронок
+        (issue #50): после обновления существующие стадии и заказы должны
+        попасть в воронку, иначе они пропадут из канбанов с фильтром по
+        воронке. Новые записи воронку получают сами (FunnelMixin) и в
+        миграции не нуждаются. Когда основные клиенты обновятся — метод и
+        его вызов из post_init удалить.
+
+        Стадии без воронки → воронка по умолчанию; заказы без воронки →
+        воронка их стадии, иначе — воронка по умолчанию. Повторный запуск
+        ничего не меняет (WHERE funnel_id IS NULL).
+        """
+        if not funnel_id:
+            return
+
+        db = env.models.sale._get_db_session()
+        await db.execute(
+            "UPDATE sale_stage SET funnel_id = $1 WHERE funnel_id IS NULL",
+            [funnel_id],
+            cursor="void",
+        )
+        await db.execute(
+            "UPDATE sales s SET funnel_id = st.funnel_id "
+            "FROM sale_stage st "
+            "WHERE s.stage_id = st.id AND s.funnel_id IS NULL",
+            cursor="void",
+        )
+        await db.execute(
+            "UPDATE sales SET funnel_id = $1 WHERE funnel_id IS NULL",
+            [funnel_id],
+            cursor="void",
+        )
 
     async def _init_sale_roles(self, env: "Environment"):
         """Создаёт роли модуля продаж: user → manager → admin."""

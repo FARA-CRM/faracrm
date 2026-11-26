@@ -101,6 +101,7 @@ const menuTree: GroupConfig[] = [
     group: 'crm',
     submenus: [
       { model: 'leads' },
+      { model: 'lead_funnel' },
       { model: 'lead_stage' },
       { model: 'team_crm' },
     ],
@@ -142,6 +143,7 @@ const menuTree: GroupConfig[] = [
     submenus: [
       { model: 'sales' },
       // { model: 'sale_line' },
+      { model: 'sale_funnel' },
       { model: 'sale_stage' },
       { model: 'tax' },
       { model: 'contract' },

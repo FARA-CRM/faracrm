@@ -43,6 +43,11 @@ export function ViewListSales() {
         render={value => <RelationCell value={value} model="company" />}
       />
       <Field
+        name="funnel_id"
+        label={t('sales.funnel_id')}
+        render={value => <RelationCell value={value} model="sale_funnel" />}
+      />
+      <Field
         name="stage_id"
         label={t('sales.stage_id')}
         render={value => <RelationCell value={value} model="sale_stage" />}
@@ -89,6 +94,11 @@ export function ViewListSaleStage() {
     <List<SaleStageRecord> model="sale_stage" order="asc" sort="sequence">
       <Field name="id" label={t('sale_stage.id')} />
       <Field name="name" label={t('sale_stage.name')} />
+      <Field
+        name="funnel_id"
+        label={t('sale_stage.funnel_id')}
+        render={value => <RelationCell value={value} model="sale_funnel" />}
+      />
       <Field name="sequence" label={t('sale_stage.sequence')} />
       <Field name="progress" label={t('sale_stage.progress')} />
       <Field

@@ -3,11 +3,13 @@
     "title": "CRM",
     "lead": "Лиды",
     "leads": "Лиды",
+    "lead_funnel": "Воронки",
     "lead_stage": "Стадии",
     "team_crm": "Команды"
   },
   "leads": {
     "id": "Ид",
+    "funnel_id": "Воронка",
     "stage_id": "Стадия",
     "title": "Лиды",
     "name": "Название лида",
@@ -26,9 +28,17 @@
     "team_id": "Команда",
     "contact_ids": "Контакты"
   },
+  "lead_funnel": {
+    "id": "Ид",
+    "title": "Воронки лидов",
+    "name": "Название воронки",
+    "sequence": "Порядок",
+    "active": "Активна"
+  },
   "lead_stage":{
     "id": "Ид",
     "name": "Название стадии",
+    "funnel_id": "Воронка",
     "sequence": "Порядок",
     "color": "Цвет",
     "fold": "Свёрнута",
@@ -44,6 +54,7 @@
   "sale_link": {
     "create_sale": "Создать заказ",
     "create_failed": "Не удалось создать заказ",
+    "choose_funnel": "В какую воронку",
     "source_lead": "Исходный лид",
     "lead": "Лид"
   }

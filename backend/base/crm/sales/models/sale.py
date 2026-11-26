@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from backend.base.crm.users.models.users import User
     from backend.base.crm.partners.models.partners import Partner
     from .sale_line import SaleLine
+    from .sale_funnel import SaleFunnel
     from .sale_stage import SaleStage
 
 from backend.base.system.dotorm.dotorm.decorators import depends
@@ -26,12 +27,42 @@ from backend.base.crm.users.audit_mixin import AuditMixin
 from backend.base.crm.security.polymorphic_parent import (
     PolymorphicParentMixin,
 )
+from .funnel_mixin import FunnelMixin
 from .stage_progress import StageProgressMixin
 
 
+async def _default_funnel_id():
+    """Воронка по умолчанию — первая по порядку активная."""
+    return await env.models.sale_funnel.search_one(
+        filter=[("active", "=", True)],
+        fields=["id", "name"],
+        sort="sequence",
+        order="ASC",
+    )
+
+
 async def _default_stage_id():
-    """Метод для получения стадии по умолчанию"""
-    return await env.models.sale_stage.search_one(fields=["id", "name"])
+    """Стадия по умолчанию — первая активная стадия воронки по умолчанию.
+
+    Фолбэк на первую активную стадию вообще — для баз без воронок (старые
+    данные до появления воронок).
+    """
+    funnel = await _default_funnel_id()
+    if funnel:
+        stage = await env.models.sale_stage.search_one(
+            filter=[("funnel_id", "=", funnel.id), ("active", "=", True)],
+            fields=["id", "name"],
+            sort="sequence",
+            order="ASC",
+        )
+        if stage:
+            return stage
+    return await env.models.sale_stage.search_one(
+        filter=[("active", "=", True)],
+        fields=["id", "name"],
+        sort="sequence",
+        order="ASC",
+    )
 
 
 async def _default_name():
@@ -47,18 +78,35 @@ async def _default_name():
     return f"Заказ {str(next_id).zfill(7)}"
 
 
+# FunnelMixin — воронка заказа всегда согласована со стадией: сменили
+# воронку → стадия переезжает на первую стадию новой воронки (см.
+# funnel_mixin.py). Идёт ПЕРЕД StageProgressMixin: он смотрит на stage_id в
+# payload, а стадию может проставить как раз воронка — тогда прогресс тоже
+# подтянется.
 # StageProgressMixin — поле progress: при смене стадии берётся из стадии,
 # дальше правится руками (см. stage_progress.py).
 # PolymorphicParentMixin — activity_ids / attachment_ids для колонок списка
 # и каскад детей при удалении: панели активностей/вложений у заказа есть
 # давно, а каскада не было.
-class Sale(AuditMixin, StageProgressMixin, PolymorphicParentMixin):
+class Sale(
+    AuditMixin, FunnelMixin, StageProgressMixin, PolymorphicParentMixin
+):
     __table__ = "sales"
 
     id: Id = Integer(primary_key=True)
     # copy=False: у дубликата заказа свой номер (default).
     name: str = Char(string="Order Name", default=_default_name, copy=False)
     active: bool = Boolean(default=True)
+    # Воронка — свой набор стадий и свой канбан. Держится в согласии со
+    # стадией через FunnelMixin, но и у самого заказа хранится: по ней
+    # фильтруются канбан/список и отчёты.
+    funnel_id: "SaleFunnel | None" = Many2one(
+        lambda: env.models.sale_funnel,
+        string="Funnel",
+        index=True,
+        ondelete="restrict",
+        default=_default_funnel_id,
+    )
     stage_id: "SaleStage" = Many2one(
         lambda: env.models.sale_stage,
         string="Stage",

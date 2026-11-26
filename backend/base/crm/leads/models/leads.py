@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from backend.base.crm.partners.models.partners import Partner
     from backend.project_setup import ChatConnector
     from .team_crm import TeamCrm
+    from .lead_funnel import LeadFunnel
     from .lead_stage import LeadStage
 
 import logging
@@ -27,19 +28,47 @@ from backend.base.system.core.enviroment import env
 from backend.base.crm.security.polymorphic_parent import (
     PolymorphicParentMixin,
 )
+from backend.base.crm.sales.models.funnel_mixin import FunnelMixin
 from backend.base.crm.sales.models.stage_progress import StageProgressMixin
 
 logger = logging.getLogger(__name__)
 
 
+async def _default_funnel_id():
+    """Воронка по умолчанию — первая по порядку активная."""
+    return await env.models.lead_funnel.search_one(
+        filter=[("active", "=", True)],
+        fields=["id", "name"],
+        sort="sequence",
+        order="ASC",
+    )
+
+
+# FunnelMixin — воронка лида всегда согласована со стадией: сменили воронку
+# → стадия переезжает на первую стадию новой воронки (см.
+# sales/models/funnel_mixin.py). Идёт ПЕРЕД StageProgressMixin: он смотрит
+# на stage_id в payload, а стадию может проставить как раз воронка — тогда
+# прогресс тоже подтянется.
 # StageProgressMixin — поле progress: при смене стадии берётся из стадии,
 # дальше правится руками (см. sales/models/stage_progress.py).
-class Lead(AuditMixin, StageProgressMixin, PolymorphicParentMixin):
+class Lead(
+    AuditMixin, FunnelMixin, StageProgressMixin, PolymorphicParentMixin
+):
     __table__ = "leads"
 
     id: Id = Integer(primary_key=True)
     name: str = Char(string="Lead Name")
     active: bool = Boolean(default=True)
+    # Воронка — свой набор стадий и свой канбан. Держится в согласии со
+    # стадией через FunnelMixin, но и у самого лида хранится: по ней
+    # фильтруются канбан/список и отчёты.
+    funnel_id: "LeadFunnel | None" = Many2one(
+        lambda: env.models.lead_funnel,
+        string="Funnel",
+        index=True,
+        ondelete="restrict",
+        default=_default_funnel_id,
+    )
     stage_id: "LeadStage" = Many2one(
         lambda: env.models.lead_stage,
         string="Stage",
@@ -175,7 +204,7 @@ class Lead(AuditMixin, StageProgressMixin, PolymorphicParentMixin):
             )
         return result
 
-    async def create_sale(self) -> int:
+    async def create_sale(self, funnel_id: int | None = None) -> int:
         """Создать продажу из лида: копия базовых полей + ссылка lead_id.
 
         Копируем то, что менеджер продаж будет менять у себя (клиент,
@@ -184,17 +213,14 @@ class Lead(AuditMixin, StageProgressMixin, PolymorphicParentMixin):
         leads/models/sale_ext.py). Один лид → много продаж: каждый вызов
         создаёт новую (повторные заказы клиента).
 
+        funnel_id — в какую воронку продаж создать заказ; без него система
+        сама берёт воронку по умолчанию. Стадия — первая по порядку активная:
+        стадия и воронка заказа согласуются сами (FunnelMixin).
+
         Права: у ролей CRM нет ACL на sale, продажу создаёт система (.sudo());
         user_id = ответственный лида, чтобы правило «свои заказы» показало
-        продажу ему. Стадия — первая по порядку активная: дефолт Sale берёт
-        первую найденную без сортировки.
+        продажу ему.
         """
-        stage = await env.models.sale_stage.sudo().search_one(
-            filter=[("active", "=", True)],
-            fields=["id"],
-            sort="sequence",
-            order="ASC",
-        )
         values = {
             "partner_id": self.partner_id,
             "user_id": self.user_id,
@@ -203,8 +229,18 @@ class Lead(AuditMixin, StageProgressMixin, PolymorphicParentMixin):
             "origin": self.name,
             "lead_id": env.models.lead(id=self.id),
         }
+        stage_filter = [("active", "=", True)]
+        if funnel_id:
+            values["funnel_id"] = funnel_id
+            stage_filter.append(("funnel_id", "=", funnel_id))
+        stage = await env.models.sale_stage.sudo().search_one(
+            filter=stage_filter,
+            fields=["id"],
+            sort="sequence",
+            order="ASC",
+        )
         if stage:
-            values["stage_id"] = stage
+            values["stage_id"] = stage.id
         payload = env.models.sale(
             **{
                 name: value

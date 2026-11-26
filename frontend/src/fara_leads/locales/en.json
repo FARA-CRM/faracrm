@@ -2,11 +2,13 @@
   "menu": {
     "title": "CRM",
     "lead": "Leads",
+    "lead_funnel": "Funnels",
     "lead_stage": "Stages",
     "team_crm": "Teams"
   },
   "leads": {
     "id": "Id",
+    "funnel_id": "Funnel",
     "stage_id": "Stage",
     "title": "Leads",
     "name": "Lead Name",
@@ -25,9 +27,17 @@
     "team_id": "Team",
     "contact_ids": "Contacts"
   },
+  "lead_funnel": {
+    "id": "Id",
+    "title": "Lead Funnels",
+    "name": "Funnel Name",
+    "sequence": "Sequence",
+    "active": "Active"
+  },
   "lead_stage":{
     "id": "Id",
     "name": "Lead stage",
+    "funnel_id": "Funnel",
     "sequence": "Sequence",
     "color": "Color",
     "fold": "Folded",
@@ -43,6 +53,7 @@
   "sale_link": {
     "create_sale": "Create order",
     "create_failed": "Failed to create order",
+    "choose_funnel": "Which funnel",
     "source_lead": "Source lead",
     "lead": "Lead"
   }

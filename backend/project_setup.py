@@ -73,7 +73,9 @@ from backend.base.crm.products.models.uom import Uom
 from backend.base.crm.leads.models.team_crm import TeamCrm
 from backend.base.crm.sales.models.tax import Tax
 from backend.base.crm.sales.models.sale_stage import SaleStage
+from backend.base.crm.sales.models.sale_funnel import SaleFunnel
 from backend.base.crm.leads.models.leads import Lead
+from backend.base.crm.leads.models.lead_funnel import LeadFunnel
 from backend.base.crm.leads.models.lead_stage import LeadStage
 
 # Chat
@@ -392,12 +394,14 @@ class Models(ModelsCore, ExtensibleMixin):
     sale_line = SaleLine
     sale = Sale
     sale_stage = SaleStage
+    sale_funnel = SaleFunnel
     team_crm = TeamCrm
     tax = Tax
     uom = Uom
     category = Category
     product = Product
     lead = Lead
+    lead_funnel = LeadFunnel
     lead_stage = LeadStage
     # chat
     chat = Chat

@@ -26,7 +26,9 @@ def _rel_id(value):
 class TestCreateSaleFromLead:
     # test_env: Sale._default_name читает sequence через env.apps.db.get_session().
 
-    async def test_copies_base_fields_and_links_lead(self, test_env):
+    async def test_copies_base_fields_and_links_lead(
+        self, test_env, sale_name_session
+    ):
         stage_id = await LeadStage.create(LeadStage(name="Новый", sequence=10))
         await SaleStage.create(SaleStage(name="Отправлено", sequence=20))
         draft_id = await SaleStage.create(
@@ -65,7 +67,9 @@ class TestCreateSaleFromLead:
         assert sale.origin == "Заявка с сайта"
         assert sale.notes == "срочно"
 
-    async def test_repeat_orders_one_lead_many_sales(self, test_env):
+    async def test_repeat_orders_one_lead_many_sales(
+        self, test_env, sale_name_session
+    ):
         stage_id = await LeadStage.create(LeadStage(name="Новый", sequence=10))
         await SaleStage.create(SaleStage(name="Черновик", sequence=10))
         lid = await Lead.create(Lead(name="Заявка", stage_id=stage_id))

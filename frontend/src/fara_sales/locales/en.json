@@ -4,6 +4,7 @@
     "sales": "Sales",
     "sale": "Orders",
     "sale_line": "Order Lines",
+    "sale_funnel": "Funnels",
     "sale_stage": "Stages",
     "tax": "Taxes",
     "contract": "Contracts",
@@ -15,6 +16,7 @@
     "title": "Sales Orders",
     "name": "Order Number",
     "date_order": "Order Date",
+    "funnel_id": "Funnel",
     "stage_id": "Stage",
     "partner_id": "Customer",
     "user_id": "Salesperson",
@@ -54,9 +56,17 @@
     "name": "Tax Name",
     "amount": "Amount"
   },
+  "sale_funnel": {
+    "id": "Id",
+    "title": "Sale Funnels",
+    "name": "Funnel Name",
+    "sequence": "Sequence",
+    "active": "Active"
+  },
   "sale_stage":{
     "id": "Id",
     "name": "Sale stage",
+    "funnel_id": "Funnel",
     "sequence": "Sequence",
     "color": "Color",
     "fold": "Folded",

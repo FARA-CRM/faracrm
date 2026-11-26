@@ -66,8 +66,21 @@ export function ViewFormLeads(props: ViewFormProps) {
             parentModel="partners"
           />
         </FormRow>
-        <FormRow cols={2}>
-          <Field name="stage_id" label="Стадия" />
+        <FormRow cols={3}>
+          {/* Воронка — свой набор стадий и свой канбан. Смена воронки на
+              бэкенде переводит лид на первую стадию новой воронки (см.
+              funnel_mixin.py); стадии в списке — только этой воронки. */}
+          <Field name="funnel_id" label="Воронка" quickCreate required />
+          <Field
+            name="stage_id"
+            label="Стадия"
+            filter={(values: Record<string, any>) => {
+              const funnel = values.funnel_id;
+              const funnelId =
+                typeof funnel === 'object' ? funnel?.id : funnel;
+              return funnelId ? [['funnel_id', '=', funnelId]] : [];
+            }}
+          />
           <Field name="user_id" label="Ответственный" />
         </FormRow>
 
@@ -133,6 +146,12 @@ export function ViewFormLeadStage(props: ViewFormProps) {
         <FormRow cols={2}>
           <Field name="name" label="Название" />
           <Field name="sequence" label="Последовательность" />
+        </FormRow>
+
+        <FormRow cols={2}>
+          {/* Воронка стадии: канбан выбранной воронки показывает только её
+              стадии. Без воронки стадия не попадёт ни в одну доску. */}
+          <Field name="funnel_id" label="Воронка" quickCreate required />
         </FormRow>
 
         <FormRow cols={2}>

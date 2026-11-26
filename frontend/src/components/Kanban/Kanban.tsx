@@ -423,6 +423,12 @@ export interface KanbanProps<T extends FaraRecord> {
    * fara_leads / fara_sales / fara_tasks, где явно отсекаются архивные стадии).
    */
   groupByFilter?: FilterExpression;
+  /**
+   * Доп. контролы в шапке вью (перед меню «⋮»), напр. переключатель воронки
+   * (см. fara_leads / fara_sales). Kanban кладёт их в тот же слот шапки,
+   * поэтому доска не теряет высоту.
+   */
+  headerExtra?: ReactNode;
 }
 
 export function Kanban<T extends FaraRecord>({
@@ -433,6 +439,7 @@ export function Kanban<T extends FaraRecord>({
   groupByModel,
   filter,
   groupByFilter,
+  headerExtra,
 }: KanbanProps<T>) {
   const navigate = useNavigate();
   const { t } = useTranslation('common');
@@ -630,9 +637,16 @@ export function Kanban<T extends FaraRecord>({
     </ColumnsMenu>
   );
   const controls = headerSlot ? (
-    createPortal(headerControls, headerSlot)
+    createPortal(
+      <>
+        {headerExtra}
+        {headerControls}
+      </>,
+      headerSlot,
+    )
   ) : (
-    <Group justify="flex-end" px="xs">
+    <Group justify="flex-end" px="xs" gap="xs">
+      {headerExtra}
       {headerControls}
     </Group>
   );

@@ -272,6 +272,12 @@ export const modelsConfig: Record<string, ModelConfig> = {
       'active',
     ],
   },
+  // Воронки лидов: несколько воронок, у каждой свой набор стадий (issue #50).
+  // Справочник простой — generic-список/форма.
+  lead_funnel: {
+    menu: MenuGroups.crm,
+    fields: ['id', 'name', 'sequence', 'active'],
+  },
   lead_stage: {
     menu: MenuGroups.crm,
     list: () =>
@@ -311,6 +317,12 @@ export const modelsConfig: Record<string, ModelConfig> = {
       () => import('@/fara_leads'),
       () => import('@/fara_sales'),
     ],
+  },
+  // Воронки продаж: несколько воронок, у каждой свой набор стадий (issue #50).
+  // Справочник простой — generic-список/форма.
+  sale_funnel: {
+    menu: MenuGroups.sales,
+    fields: ['id', 'name', 'sequence', 'active'],
   },
   sale_stage: {
     menu: MenuGroups.sales,

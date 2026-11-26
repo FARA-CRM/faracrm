@@ -18,6 +18,11 @@ export function ViewListLeads() {
       <Field name="name" label={t('leads.name')} />
       <Field name="type" label={t('leads.type')} />
       <Field
+        name="funnel_id"
+        label={t('leads.funnel_id')}
+        render={value => <RelationCell value={value} model="lead_funnel" />}
+      />
+      <Field
         name="user_id"
         label={t('leads.user_id')}
         render={value => <RelationCell value={value} model="users" />}
@@ -58,6 +63,11 @@ export function ViewListLeadStage() {
     <List<LeadStageRecord> model="lead_stage" order="asc" sort="sequence">
       <Field name="id" label={t('lead_stage.id')} />
       <Field name="name" label={t('lead_stage.name')} />
+      <Field
+        name="funnel_id"
+        label={t('lead_stage.funnel_id')}
+        render={value => <RelationCell value={value} model="lead_funnel" />}
+      />
       <Field name="sequence" label={t('lead_stage.sequence')} />
       <Field name="progress" label={t('lead_stage.progress')} />
       <Field
