@@ -1,6 +1,8 @@
-import { useState } from 'react';
 import { Kanban } from '@/components/Kanban';
-import { FunnelSelect } from '@/components/FunnelSelect/FunnelSelect';
+import {
+  FunnelMenu,
+  useFunnelSelection,
+} from '@/components/FunnelMenu/FunnelMenu';
 import { FilterExpression } from '@/services/api/crudTypes';
 import type {
   LeadRecord,
@@ -10,9 +12,13 @@ import type {
 
 export function ViewKanbanLeads() {
   // Воронка: в канбане показываем лиды и колонки-стадии только выбранной
-  // воронки. Пока воронка одна — переключателя нет и фильтра тоже (как
-  // раньше, одна доска).
-  const [funnelId, setFunnelId] = useState<number | null>(null);
+  // воронки. Выбор — в меню вида «⋮». Пока воронка одна — пункта нет и
+  // фильтра тоже (как раньше, одна доска).
+  const {
+    funnels,
+    value: funnelId,
+    select,
+  } = useFunnelSelection('lead_funnel');
   const leadFilter: FilterExpression | undefined = funnelId
     ? [['funnel_id', '=', funnelId]]
     : undefined;
@@ -32,12 +38,8 @@ export function ViewKanbanLeads() {
       groupByModel="lead_stage"
       groupByFilter={stageFilter}
       filter={leadFilter}
-      headerExtra={
-        <FunnelSelect
-          model="lead_funnel"
-          value={funnelId}
-          onChange={setFunnelId}
-        />
+      menuExtra={
+        <FunnelMenu funnels={funnels} value={funnelId} onChange={select} />
       }
     />
   );

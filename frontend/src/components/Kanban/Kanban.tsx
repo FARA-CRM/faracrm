@@ -424,11 +424,12 @@ export interface KanbanProps<T extends FaraRecord> {
    */
   groupByFilter?: FilterExpression;
   /**
-   * Доп. контролы в шапке вью (перед меню «⋮»), напр. переключатель воронки
-   * (см. fara_leads / fara_sales). Kanban кладёт их в тот же слот шапки,
-   * поэтому доска не теряет высоту.
+   * Пункты меню вида «⋮» (настройки вида), напр. выбор воронки (см.
+   * fara_leads / fara_sales). Вставляются в то же меню, что и «Поля
+   * карточки», до него; вью сам решает, нужны ли пункты (компонент может
+   * вернуть null) и ставит ли разделитель.
    */
-  headerExtra?: ReactNode;
+  menuExtra?: ReactNode;
 }
 
 export function Kanban<T extends FaraRecord>({
@@ -439,7 +440,7 @@ export function Kanban<T extends FaraRecord>({
   groupByModel,
   filter,
   groupByFilter,
-  headerExtra,
+  menuExtra,
 }: KanbanProps<T>) {
   const navigate = useNavigate();
   const { t } = useTranslation('common');
@@ -614,8 +615,9 @@ export function Kanban<T extends FaraRecord>({
     ]),
   );
 
-  // Меню «⋮» канбана: поля карточки. Поповер якорится на кнопку меню,
-  // поэтому ColumnsMenu оборачивает ViewMenu — как в списке.
+  // Меню «⋮» канбана: настройки вида (пункты вью, напр. выбор воронки) и
+  // поля карточки. Поповер якорится на кнопку меню, поэтому ColumnsMenu
+  // оборачивает ViewMenu — как в списке.
   const headerControls = (
     <ColumnsMenu
       opened={fieldsOpen}
@@ -628,6 +630,7 @@ export function Kanban<T extends FaraRecord>({
       onReset={columnConfig.reset}
       onClose={columnConfig.persistIfDirty}>
       <ViewMenu>
+        {menuExtra}
         <Menu.Item
           leftSection={<IconAdjustments size={14} />}
           onClick={() => setFieldsOpen(true)}>
@@ -637,16 +640,9 @@ export function Kanban<T extends FaraRecord>({
     </ColumnsMenu>
   );
   const controls = headerSlot ? (
-    createPortal(
-      <>
-        {headerExtra}
-        {headerControls}
-      </>,
-      headerSlot,
-    )
+    createPortal(headerControls, headerSlot)
   ) : (
-    <Group justify="flex-end" px="xs" gap="xs">
-      {headerExtra}
+    <Group justify="flex-end" px="xs">
       {headerControls}
     </Group>
   );
