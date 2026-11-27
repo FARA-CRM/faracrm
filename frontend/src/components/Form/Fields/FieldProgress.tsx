@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Group, Progress, Slider, Text } from '@mantine/core';
+
 import { useFormContext } from '../FormContext';
 import { FieldWrapper } from './FieldWrapper';
 import { LabelPosition } from '../FormSettingsContext';
-
-/** Высота полосы: mantine-размер ('xs'…'xl') или пиксели. */
-type ProgressSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
+import {
+  ProgressLine,
+  ProgressSlider,
+  clampProgress,
+  progressHeight,
+} from './ProgressBar';
+import type { ProgressSize } from './ProgressBar';
 
 interface FieldProgressProps {
   name: string;
@@ -29,18 +33,6 @@ interface FieldProgressProps {
   [key: string]: any;
 }
 
-/** Цвет по величине: старт — оранжевый, середина — синий, финиш — зелёный. */
-const progressColor = (value: number) => {
-  if (value >= 100) return 'teal';
-  if (value >= 50) return 'blue';
-  return 'orange';
-};
-
-const clamp = (raw: unknown) => {
-  const num = Number(raw ?? 0);
-  return Number.isFinite(num) ? Math.max(0, Math.min(100, num)) : 0;
-};
-
 interface ProgressViewProps {
   value: unknown;
   size?: ProgressSize;
@@ -50,76 +42,16 @@ interface ProgressViewProps {
 
 /**
  * Полоса «только показ» + процент. Общая для формы (editable={false}) и
- * карточек канбана (fara_leads / fara_sales, extensions/KanbanCard*).
+ * карточек канбана (fara_leads / fara_sales, extensions/KanbanCard*), поэтому
+ * вид прогресса в карточке записи и в канбане одинаковый.
  */
-export const ProgressView = ({
-  value,
-  size = 'xl',
-  label,
-}: ProgressViewProps) => {
-  const num = clamp(value);
-
-  return (
-    <Group gap="xs" wrap="nowrap">
-      <Progress
-        value={num}
-        color={progressColor(num)}
-        size={size}
-        radius="xl"
-        aria-label={label}
-        style={{ flex: 1 }}
-      />
-      <Text size="sm" c="dimmed" style={{ minWidth: 38, textAlign: 'right' }}>
-        {num}%
-      </Text>
-    </Group>
-  );
-};
-
-interface ProgressSliderProps {
-  value: number;
-  size: ProgressSize;
-  step: number;
-  disabled?: boolean;
-  onCommit: (value: number) => void;
-}
-
-/**
- * Редактируемый ползунок. Отдельный компонент, потому что во время
- * перетаскивания нужно своё состояние (форма uncontrolled и о промежуточных
- * значениях не знает), а монтируется он по form.key(name) — так значение
- * извне (загрузка записи, /onchange) сбрасывает локальное.
- */
-const ProgressSlider = ({
-  value,
-  size,
-  step,
-  disabled,
-  onCommit,
-}: ProgressSliderProps) => {
-  const [current, setCurrent] = useState(value);
-
-  return (
-    <Group gap="xs" wrap="nowrap">
-      <Slider
-        value={current}
-        onChange={setCurrent}
-        onChangeEnd={onCommit}
-        min={0}
-        max={100}
-        step={step}
-        size={size}
-        color={progressColor(current)}
-        label={v => `${v}%`}
-        disabled={disabled}
-        style={{ flex: 1 }}
-      />
-      <Text size="sm" c="dimmed" style={{ minWidth: 38, textAlign: 'right' }}>
-        {current}%
-      </Text>
-    </Group>
-  );
-};
+export const ProgressView = ({ value, size = 'xl', label }: ProgressViewProps) => (
+  <ProgressLine
+    value={clampProgress(value) ?? 0}
+    height={progressHeight(size)}
+    label={label}
+  />
+);
 
 /**
  * Поле-процент (0–100) полосой прогресса.
@@ -144,7 +76,7 @@ export const FieldProgress = ({
   // disabled приходит из enhanceGetInputProps формы (поля заблокированы,
   // пока не пришли метаданные) — в типах Mantine этого свойства нет.
   const { disabled } = form.getInputProps(name) as { disabled?: boolean };
-  const value = clamp(form.getValues()?.[name]);
+  const value = clampProgress(form.getValues()?.[name]) ?? 0;
 
   // enabledBy: следим за галочкой. form.watch вызывается во время рендера
   // (правило Mantine v7, как в FieldPatternBuilder); без enabledBy
@@ -168,9 +100,10 @@ export const FieldProgress = ({
         <ProgressSlider
           key={form.key(name)}
           value={value}
-          size={size}
+          height={progressHeight(size)}
           step={step}
           disabled={disabled || !enabled}
+          label={displayLabel}
           onCommit={next => form.setFieldValue(name, next)}
         />
       ) : (
